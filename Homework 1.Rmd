@@ -1,0 +1,322 @@
+---
+title: "Homework 1"
+author: "Caroline Nelson"
+date: "August 6, 2016"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Problem 1
+##Part A
+We know:
+
+
+$$P(RC)=0.3\
+P(TC)=0.7\
+P(Y|RC)=0.5\
+P(N|RC)=0.5\
+P(Y)=0.65\
+P(N)=0.35\
+P(Y|TC)=?\
+P(Y)&=P(Y|TC)P(TC)+P(Y|RC)P(RC)\
+0.65&=0.7x+0.5(0.3)\
+0.5&=0.7x\
+P(Y|TC)=5/7$$
+
+##Part B
+
+$$Sensitivity=P(T|D)=0.993$$\
+$$Specificity=P(T'|D')=0.9999$$\
+$$P(D)=0.000025$$\
+$$P(T|D)=P(T)P(D|T)P(D)$$\
+$$P(T)=P(T|D)P(D)+P(T|D')P(D')$$\
+$$ =0.993*0.000025+(1-0.9999)*(1-0.000025)$$\
+$$ =0.0001248$$\
+$$0.993=\frac{0.0001248*x}}{0.000025}$$\
+$$x=0.198$$
+This means that if you test positive for a disease, you have a 19.8% chance of actually having the disease.  This does not sound like an ideal test for this specific disease.
+
+#Problem 2
+```{r, echo=FALSE}
+green<-read.csv('greenbuildings.csv')
+attach(green)
+```
+
+```{r,echo=FALSE}
+# greens=green[green_rating==1,]
+# nongreens=green[green_rating==0,]
+# plot(green_rating, Rent)
+# cor(green_rating,Rent)
+```
+Having a green rating and having high rent has a correlation of 0.033. We can see in the plot that non-green buildings have a wider range for rent costs, with lots of outliers at the upper end.
+```{r,echo=FALSE}
+#plot(renovated,Rent)
+par(mfrow=c(1,3))
+boxplot(size~green_rating,main='Green vs. Size')
+boxplot(leasing_rate~green_rating,main='Green Rating vs. Leasing rate')
+boxplot(Rent~green_rating,data=green,main='Green Rating vs. Rent')
+```
+These plots enhance the consultant's argument that a green-rated building would bring more revenue.  They show that while there is a small change in rent between green and non-green, there is a much smaller range of sizes for green buildings, so rent must overall be more expensive for green buildings, or so it appears.  The plots also exhibit that the green-building is likely to be leased, which would also bring in more revenue.  These arguments, however, are not big-picture arguments.
+##Counter-arguments
+Non-green buildings have lots of outliers in size and rent costs.  The statistics shown indicate that the average rent for green buildings is actually about the same as non-green buildings; however, there are lots of data points on the lower side of rent that bring the non-green buildings' median rent cost down.  The median size of non-green buildings is 118,700 square feet, which is smaller than the 25th percentile of green buildings.  We can conclude from this that rent costs and size counteract, so rent could be approximately the same for buidings with and without a green certification.
+```{r}
+par(mfrow=c(1,3))
+plot(cluster_rent~cluster, main='cluster vs. cluster-rent')
+plot(age,Rent, main='Age vs. Rent')
+plot(Rent~size, main='Size vs. Rent')
+```
+##Conclusion:
+The initial consultant's results do not consider many factors in this problem.  We see that rent and size almost counteract, but there are other factors, such as which cluster a building would be located.  Location is very important in rent costs, as well as the factors we have looked at, and others, such as age and leasing rate.  Whether or not a company should invest in a green building should take such factors into account. We saw that there is not a large difference between rent costs of a green-certified building, and non-green buildings.  We also saw that the range of size of green buildings is much smaller than that of non-green buildings; this does enhance the consultant's argument, but there are other factors at play. The green buildings considered in the analysis could just be younger, more new buildings that can charge more for rent because of their age; they could also be in a cluster where rent is overall more expensive.  
+
+# Problem 3
+```{r,echo=FALSE}
+library(mosaic)
+library(fImport)
+library(foreach)
+
+mystocks = c("TLT", "LQD", "SPY","EEM","VNQ")
+myprices = yahooSeries(mystocks, from='2007-01-01', to='2015-07-30')
+#The first few rows
+head(myprices)
+
+YahooPricesToReturns = function(series) {
+  mycols = grep('Adj.Close', colnames(series))
+  closingprice = series[,mycols]
+  N = nrow(closingprice)
+  percentreturn = as.data.frame(closingprice[2:N,]) / as.data.frame(closingprice[1:(N-1),]) - 1
+  mynames = strsplit(colnames(percentreturn), '.', fixed=TRUE)
+  mynames = lapply(mynames, function(x) return(paste0(x[1], ".PctReturn")))
+  colnames(percentreturn) = mynames
+  as.matrix(na.omit(percentreturn))
+}
+
+myreturns = YahooPricesToReturns(myprices)
+
+```
+
+
+```{r,echo=FALSE}
+#pairs(myreturns)
+#par(mfrow=c(3,2))
+plot(myprices[,4], type='l', main='TLT',xlab='Date')
+plot(myprices[,10], type='l', main='LQD',xlab='Date')
+plot(myprices[,16], type='l', main='SPY',xlab='Date')
+plot(myprices[,22], type='l', main='EEM',xlab='Date')
+plot(myprices[,28], type='l', main='VNQ',xlab='Date')
+```
+From these graphs, we can see that:
+* EEM has had the most difficulty recovering from the crash in 2008.
+* TLT has had lots of variation since 2012, but has somewhat recovered since 2008.
+* LQD has had great success since 2008, and seems to be growing steadily.
+* SPY has also steadily grown since the stock market crash, and is still growing.
+* VNQ is slowly recovering, and seems to have recovered from the 2008 crash.
+
+##Evenly-split Approach
+```{r,echo=FALSE}
+mystocks = c("TLT", "LQD", "SPY","EEM","VNQ")
+myprices = yahooSeries(mystocks, from='2007-01-01', to='2015-07-30')
+
+set.seed(2)
+totalwealth = 100000
+weights = c(0.2,0.2,0.2,0.2,0.2)
+
+#compute returns from closing prices
+myreturns = YahooPricesToReturns(myprices)
+holdings = weights * totalwealth
+n_days=20
+wealthtracker = rep(0, n_days) # Set up a placeholder to track total wealth
+for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+}
+#totalwealth
+
+# Now simulate many different possible trading years!
+evenly_split = foreach(i=1:5000, .combine='rbind') %do% {
+    totalwealth=100000
+  holdings = weights * totalwealth
+    wealthtracker = rep(0, n_days) # Set up a placeholder to track total wealth
+    for(today in 1:n_days) {
+        return.today = resample(myreturns, 1, orig.ids=FALSE)
+        holdings = holdings + holdings*return.today
+        totalwealth = sum(holdings)
+        wealthtracker[today] = totalwealth
+    }
+    wealthtracker
+}
+# Profit/loss
+hist(evenly_split[,n_days]- 100000, xlab='Profit/Loss', ylab='Frequency', main='Safe Approach Portfolio')
+
+# Calculate 5% value at risk
+#quantile(evenly_split[,n_days], 0.05) - 100000
+```
+The evenly-split approach gives a total wealth of $105,016.70, and a value at risk of $6,967.83.
+##Safe Approach
+```{r,echo=FALSE}
+mystocks = c("TLT", "LQD", "SPY")
+myprices = yahooSeries(mystocks, from = '2007-01-01', to='2015-07-30')
+
+set.seed(2)
+totalwealth = 100000
+weights = c(0.5,0.25,0.25)
+
+#compute returns from closing prices
+myreturns = YahooPricesToReturns(myprices)
+holdings = weights * totalwealth
+n_days=20
+wealthtracker = rep(0, n_days) # Set up a placeholder to track total wealth
+for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+}
+#totalwealth
+
+# Now simulate many different possible trading years!
+safe_approach = foreach(i=1:5000, .combine='rbind') %do% {
+    totalwealth=100000
+    holdings = weights * totalwealth
+    wealthtracker = rep(0, n_days) # Set up a placeholder to track total wealth
+    for(today in 1:n_days) {
+        return.today = resample(myreturns, 1, orig.ids=FALSE)
+        holdings = holdings + holdings*return.today
+        totalwealth = sum(holdings)
+        wealthtracker[today] = totalwealth
+    }
+    wealthtracker
+}
+# Profit/loss
+hist(safe_approach[,n_days]- 100000, xlab='Profit/Loss', ylab='Frequency', main='Safe Approach Portfolio')
+
+# Calculate 5% value at risk
+#quantile(safe_approach[,n_days], 0.05) - 100000
+```
+This safe portfolio gave $3269.253 as the value at risk at the 5% level; this is very low, as expected.  The total wealth, however, decreased quite a bit to $97,876.13. This was surprising, considering how little was at risk. 
+
+##Risky Approach
+```{r,echo=FALSE}
+mystocks = c("OIH", "SPY", "XLE")
+myprices = yahooSeries(mystocks, from = '2007-01-01', to='2015-07-30')
+
+set.seed(2)
+totalwealth = 100000
+weights = c(0.5,0.25,0.25)
+
+#compute returns from closing prices
+myreturns = YahooPricesToReturns(myprices)
+holdings = weights * totalwealth
+n_days=20
+wealthtracker = rep(0, n_days) # Set up a placeholder to track total wealth
+for(today in 1:n_days) {
+    return.today = resample(myreturns, 1, orig.ids=FALSE)
+    holdings = holdings + holdings*return.today
+    totalwealth = sum(holdings)
+    wealthtracker[today] = totalwealth
+}
+#totalwealth
+
+# Now simulate many different possible trading years!
+risky_approach = foreach(i=1:5000, .combine='rbind') %do% {
+    totalwealth=100000
+  holdings = weights * totalwealth
+    wealthtracker = rep(0, n_days) # Set up a placeholder to track total wealth
+    for(today in 1:n_days) {
+        return.today = resample(myreturns, 1, orig.ids=FALSE)
+        holdings = holdings + holdings*return.today
+        totalwealth = sum(holdings)
+        wealthtracker[today] = totalwealth
+    }
+    wealthtracker
+}
+# Profit/loss
+hist(risky_approach[,n_days]- 100000, xlab='Profit/Loss', ylab='Frequency', main='Risky Approach Portfolio')
+
+# Calculate 5% value at risk
+#quantile(risky_approach[,n_days], 0.05) - 100000
+```
+The riskier portfolio looked at OIH and XLE (oil and energy stocks, respectively). Oil prices have been down for a few years now, and I was curious how much investers have been at risk of losing.  The value at risk at the 5% level was $13,467.67.  This was expected; however the total wealth was the highest of the three portfolios, at $107,572. Taking risks can sometimes have rewards.
+
+# Problem 4
+
+In this problem, we are looking at a data set with each of Nutrient H2O's followers, and the number of tweets that fall into 36 categories.  In order to find clusters that stand out as the most common, or the categories that are most commonly tweeted together, I will use K-means.
+```{r,echo=FALSE}
+marketing<-read.csv('social_marketing.csv')
+library(ggplot2)
+library(wordcloud)
+
+# Pick out the numerical columns from the data set
+set.seed(1)
+Z=marketing[,2:37]
+
+#Clearly a lot of correlation structure in the measurements
+#pairs(Z)
+
+# Run PCA
+Znew=Z/rowSums(Z)
+
+
+sums=colSums(Znew)
+wordcloud(colnames(Z), sums, min.freq=0, max.words=100)
+```
+This word cloud gives all possible market segments (clusters of similar subjects) that are tweeted, most of which being chatter, which, being such a generic term, is not surprising. 
+```{r}
+
+# Scaled per-document phrase frequencies
+library(textir)
+library(flexclust)
+library(wordcloud)
+Z = scale(Znew)
+
+# Run k means
+kmeans_mkt <- kmeans(Z, 5,nstart=10)  
+
+# The first centroid
+head(sort(kmeans_mkt$centers[1,], decreasing=TRUE), 10)
+```
+The top 5 terms of each cluster are as follows:
+```{r}
+
+# All centroids
+print(apply(kmeans_mkt$centers,1,function(x) colnames(Z)[order(x, decreasing=TRUE)[1:10]]))
+```
+We can see from these clusters, there is a specific market segment that would potentially tweet about everything in that cluster.  Cluster 1 is likely college students looking for easy recipes, constantly sharing photos, and are interested in latest trends in music and fashion.  Cluster 2 can be parents, in general; parents are concerned with raising their kids the best they can, looking to religion for help.  They are also concerned with food and school for their kids, and dads are normally big sports fans.  Cluster 3 could be moms who stay up to date on latest fashions, current events, tv shows and movies.  They constantly share photos of their kids, and advertise for their family business.  Cluster 4 could represent health conscious, active people who enjoy the outdoors.  Cluster 5 could be men that keep up with the latest cars and computers, as well as politics and news; they like to travel and keep up with their college football team after graduating.
+
+# Conclusion:
+From these clusters, Nutrient H2O's followers seem to be of similar demographics-- either new parents or twenty-somethings-- who are interested in current trends, dating, and personal fitness.
+```{r,echo=FALSE}
+# # A word cloud
+# par(mfrows=c(3,2))
+# wordcloud(colnames(Z), kmeans_mkt$centers[1,], min.freq=0, max.words=20)
+# wordcloud(colnames(Z), kmeans_mkt$centers[2,], min.freq=0, max.words=20)
+# wordcloud(colnames(Z), kmeans_mkt$centers[3,], min.freq=0, max.words=20)
+# wordcloud(colnames(Z), kmeans_mkt$centers[4,], min.freq=0, max.words=20)
+# wordcloud(colnames(Z), kmeans_mkt$centers[5,], min.freq=0, max.words=20)
+
+
+```
+These word clouds represent each of the 5 clusters, and the size of each term represents their significane within that cluster.
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
