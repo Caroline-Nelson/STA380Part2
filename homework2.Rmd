@@ -1,0 +1,153 @@
+---
+title: "Homework 2"
+author: "Caroline Nelson"
+date: "August 12, 2016"
+output: word_document
+---
+# Problem 1
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r,echo=FALSE}
+abia<-read.csv('ABIA.csv')
+attach(abia)
+from=abia[Origin=='AUS',]
+only_out=abia[Dest!='AUS'&Origin=='AUS',]
+cancelled=abia[Cancelled==1,]
+#most common-DAL and DFW
+subset=summary(only_out$Dest,5)
+barplot(subset,col='blue')
+```
+This bar plot shows the top five destinations from Austin.  There are lots of 'Other' destinations, but we can see that there is a lot of business people travelling between Austin and Dallas.
+```{r,echo=FALSE}
+MonthCanc=as.factor(cancelled$Month)
+barplot(summary(MonthCanc),col='red')
+```
+This plot shows the number of cancellations by month.  We can see that there are a lot of cancellations in the month of April, but what if the majority of flights actually happen in April?
+
+```{r,echo=FALSE}
+Month=as.factor(abia$Month)
+total=summary(Month)
+success=summary(MonthCanc)
+prop=(summary(MonthCanc)/summary(Month))
+for(i in 1:12){
+  (prop.test(success[i],p=0.01411354,n=total[i],alternative='greater'))
+}
+plot(prop,xlab='Month',ylab='Proportion of Cancellations')
+abline(h=mean(prop))
+```
+I performed a ChiSquare test to see whether one month had a particularly high amount of cancellations, and found that September, April, March, and February have significantly higher ratios of cancellations to total flights per month.  So, this does mean that there are more cancellations in April than most other months.  April is generally a rainy month, so let's see if rain was the reason for April's cancellations.
+```{r,echo=FALSE}
+library(ggplot2)
+df2 <- cancelled[,c('Month', 'CancellationCode')]
+df2_A <- df2[df2$CancellationCode == c('A','B','C','D'),]
+plot <- ggplot(df2_A, aes(x=as.factor(Month), fill=CancellationCode)) + geom_bar(position='dodge')
+plot
+```
+Surprisingly, the majority of cancellations due to weather occur in September, and April has a large number of carrier cancellations.  This could be due to the most common carriers being different in each month, or even destination differences.
+
+## Problem 2
+# Naive Bayes
+```{r}
+library(tm)
+library(e1071)
+author_dirs1 = Sys.glob('ReutersC50/C50train/*')
+author_dirs2=Sys.glob('ReutersC50/C50test/*')
+author_dirs = c(author_dirs1,author_dirs2)
+file_list = NULL
+labels = NULL
+for(author in author_dirs) {
+	author_name = substring(author, first=29)
+	files_to_add = Sys.glob(paste0(author, '/*.txt'))
+	file_list = append(file_list, files_to_add)
+	labels = append(labels, rep(author_name, length(files_to_add)))
+}
+readerPlain = function(fname){
+				readPlain(elem=list(content=readLines(fname)), 
+							id=fname, language='en') }
+
+all_docs = lapply(file_list, readerPlain) 
+names(all_docs) = file_list
+names(all_docs) = sub('.txt', '', names(all_docs))
+
+my_corpus = Corpus(VectorSource(all_docs))
+names(my_corpus) = file_list
+
+# Preprocessing
+my_corpus = tm_map(my_corpus, content_transformer(tolower)) # make everything lowercase
+my_corpus = tm_map(my_corpus, content_transformer(removeNumbers)) # remove numbers
+my_corpus = tm_map(my_corpus, content_transformer(removePunctuation)) # remove punctuation
+my_corpus = tm_map(my_corpus, content_transformer(stripWhitespace)) ## remove excess white-space
+my_corpus = tm_map(my_corpus, content_transformer(removeWords), stopwords("SMART"))
+my_corpus <- tm_map(my_corpus, stemDocument, language = "english")
+DTM1 = DocumentTermMatrix(my_corpus)
+DTM1 = removeSparseTerms(DTM1, 0.975)
+
+# Now a dense matrix
+X_train = as.matrix(DTM1[1:2500,])
+X_test=as.matrix(DTM1[2501:5000,])
+
+file_names=rownames(X_train)
+author_names=vector(mode='character',length=length(file_names))
+for(i in 1:length(file_names)){
+  temp_name=strsplit(file_names[i],'/')
+  author_names[i]=temp_name[[1]][3]
+}
+Xtrain=data.frame(X_train,author_names)
+
+test_names=rownames(X_test)
+author_test=vector(mode='character',length=length(test_names))
+for(i in 1:length(test_names)){
+  temp_name=strsplit(test_names[i],'/')
+  author_test[i]=temp_name[[1]][3]
+}
+Xtest=data.frame(X_test,author_test)
+
+model <- naiveBayes(author_names~.,data=Xtrain)
+prediction <- predict(model, newdata=Xtest)
+table=table(prediction, Xtest[,ncol(Xtest)])
+sum(prediction==Xtest$author_test)/length(prediction)*100
+```
+Using a Naive Bayes model, we see a very low accuracy score, most likely due to assumed independence.  We can see that David Lawder's writing is similar to quite a few other authors', as well as Lydia Zajc and Tim Farrand.
+
+# K-Nearest Neighbors
+```{r}
+library(class)
+set.seed(100)
+
+# Packages
+library(tm) # Text mining: Corpus and Document Term Matrix
+library(class) # KNN model
+library(SnowballC) # Stemming words
+mat.df <- as.data.frame(data.matrix(Xtrain), stringsAsfactors = FALSE)
+mat.df2 <- as.data.frame(data.matrix(Xtest), stringsAsfactors = FALSE)
+# Isolate classifier
+cl <- mat.df[, "author_names"]
+
+# Create model data and remove "category"
+modeldata <- mat.df[,!colnames(mat.df) %in% "author_names"]
+modeldata2<-mat.df2[,!colnames(mat.df2)%in% "author_test"]
+# Create model: training set, test set, training set classifier
+knn.pred <- knn(modeldata, modeldata2, cl)
+
+# Confusion matrix
+conf.mat <- table("Predictions" = knn.pred, Actual = cl)
+
+# Accuracy
+(accuracy <- sum(diag(conf.mat))/length(Xtest) * 100)
+```
+The accuracy of the KNN model was significantly better than Naive Bayes, and does well out of sample.  
+
+## Problem 3
+```{r,echo=FALSE}
+library(arules)
+groceries=read.transactions('groceries.txt',sep=',')
+detach(package:tm,unload=TRUE)
+
+grocrules <- apriori(groceries, parameter=list(support=.01, confidence=.5, maxlen=4),appearance = list(default='lhs',rhs='whole milk'))
+
+inspect(subset(grocrules, subset=lift > 2))
+```
+Since my initial analysis showed whole milk often on the right hand side, I narrowed my analysis down to only having whole milk on the right hand side, confidence of 50%, support=0.01, and lift greater than 2.  This means that 1% of the groceries list had the left and right sides in the basket, 50% of those with the left hand side also had whole milk, and those with the left hand side are at least twice as likely to also have whole milk.  I was hoping to see if people tended to buy less healthy things when buying whole milk, which is now less popular than, say, soy milk, for health enthusiasts. As it turns out, fruits and vegetables are very commonly bought with whole milk.  This is most likely because these are items that tend to go bad on a weekly basis.  We also see items like curd, butter, whipped/sour cream, and yogurt, which are other dairy products possibly used in similar recipes as whole milk.  There does not seem to be as much of a correlation between whole milk and unhealthy products as I previously thought.
+
+
